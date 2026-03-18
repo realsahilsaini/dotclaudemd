@@ -4,10 +4,9 @@
   "description": "CLAUDE.md Template Registry CLI — scaffold, lint, and health-check your CLAUDE.md files",
   "type": "module",
   "bin": {
-    "dotclaudemd": "./bin/dotclaudemd"
+    "dotclaudemd": "dist/cli.js"
   },
   "files": [
-    "bin",
     "dist",
     "templates"
   ],

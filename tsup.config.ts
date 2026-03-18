@@ -7,4 +7,7 @@ export default defineConfig({
   outExtension: () => ({ js: ".js" }),
   clean: true,
   sourcemap: true,
+  banner: {
+    js: "#!/usr/bin/env node",
+  },
 });
