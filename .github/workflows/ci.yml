@@ -24,6 +24,6 @@ jobs:
       - run: npm test
       - name: Smoke test CLI
         run: |
-          node dist/cli.mjs --version
-          node dist/cli.mjs browse --list
-          node dist/cli.mjs lint tests/fixtures/claudemd/valid.md
+          node dist/cli.js --version
+          node dist/cli.js browse --list
+          node dist/cli.js lint tests/fixtures/claudemd/valid.md

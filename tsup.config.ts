@@ -4,7 +4,7 @@ export default defineConfig({
   entry: ["src/cli.ts"],
   format: ["esm"],
   outDir: "dist",
-  outExtension: () => ({ js: ".mjs" }),
+  outExtension: () => ({ js: ".js" }),
   clean: true,
   sourcemap: true,
   banner: {
