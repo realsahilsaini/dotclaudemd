@@ -9,7 +9,7 @@ program
   .description(
     "CLAUDE.md Template Registry CLI — scaffold, lint, and health-check your CLAUDE.md files",
   )
-  .version("0.1.0");
+  .version("0.1.1");
 
 program
   .command("init")
