@@ -27,6 +27,10 @@ export function findProjectRoot(startDir?: string): string {
       "pyproject.toml",
       "Cargo.toml",
       "go.mod",
+      "pom.xml",
+      "build.gradle",
+      "Gemfile",
+      "composer.json",
       ".git",
     ];
     for (const indicator of indicators) {

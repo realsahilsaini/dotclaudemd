@@ -45,6 +45,13 @@ export const builtinRules: LintRule[] = [
         lower.includes("go ") ||
         lower.includes("python ") ||
         lower.includes("pytest") ||
+        lower.includes("mvn ") ||
+        lower.includes("gradle ") ||
+        lower.includes("./gradlew ") ||
+        lower.includes("rails ") ||
+        lower.includes("bundle ") ||
+        lower.includes("php artisan") ||
+        lower.includes("composer ") ||
         lower.includes("```sh") ||
         lower.includes("```bash") ||
         lower.includes("```shell");

@@ -12,6 +12,9 @@ export async function detectStack(
     detectPython,
     detectRust,
     detectGo,
+    detectJava,
+    detectRuby,
+    detectPhp,
   ];
 
   for (const detector of detectors) {
@@ -55,13 +58,27 @@ async function detectNode(
     stack.language = "javascript"; // category stays javascript
   }
 
-  // Detect framework
-  if (depNames.includes("next")) {
+  // Detect monorepo tools (file-based, before dependency chain)
+  if (await deps.fileExists(join(projectRoot, "turbo.json"))) {
+    stack.framework = "Turborepo";
+  } else if (await deps.fileExists(join(projectRoot, "nx.json"))) {
+    stack.framework = "Nx";
+  }
+  // Detect framework from dependencies
+  else if (depNames.includes("next")) {
     stack.framework = "Next.js";
+  } else if (depNames.includes("@sveltejs/kit")) {
+    stack.framework = "SvelteKit";
+  } else if (depNames.includes("astro")) {
+    stack.framework = "Astro";
+  } else if (depNames.includes("nuxt")) {
+    stack.framework = "Nuxt";
   } else if (depNames.includes("express") && depNames.includes("react")) {
     stack.framework = "MERN";
   } else if (depNames.includes("express")) {
     stack.framework = "Express";
+  } else if (depNames.includes("vue")) {
+    stack.framework = "Vue";
   } else if (depNames.includes("react")) {
     stack.framework = "React";
   }
@@ -201,6 +218,96 @@ async function detectGo(
     else if (content.includes("gofiber/fiber")) stack.framework = "Fiber";
     else if (content.includes("go-chi/chi")) stack.framework = "Chi";
     else if (content.includes("labstack/echo")) stack.framework = "Echo";
+  } catch {
+    // ignore
+  }
+
+  return stack;
+}
+
+async function detectJava(
+  projectRoot: string,
+  deps: FsDeps,
+): Promise<DetectedStack | null> {
+  const hasPom = await deps.fileExists(join(projectRoot, "pom.xml"));
+  const hasGradle = await deps.fileExists(join(projectRoot, "build.gradle"));
+  const hasGradleKts = await deps.fileExists(
+    join(projectRoot, "build.gradle.kts"),
+  );
+
+  if (!hasPom && !hasGradle && !hasGradleKts) return null;
+
+  const stack: DetectedStack = {
+    language: "java",
+    packageManager: hasPom ? "maven" : "gradle",
+    dependencies: [],
+    devDependencies: [],
+  };
+
+  try {
+    const buildFile = hasPom
+      ? "pom.xml"
+      : hasGradleKts
+        ? "build.gradle.kts"
+        : "build.gradle";
+    const content = await deps.readFile(join(projectRoot, buildFile));
+    if (content.includes("spring-boot") || content.includes("org.springframework.boot")) {
+      stack.framework = "Spring Boot";
+    }
+  } catch {
+    // ignore
+  }
+
+  return stack;
+}
+
+async function detectRuby(
+  projectRoot: string,
+  deps: FsDeps,
+): Promise<DetectedStack | null> {
+  if (!(await deps.fileExists(join(projectRoot, "Gemfile")))) return null;
+
+  const stack: DetectedStack = {
+    language: "ruby",
+    packageManager: "bundler",
+    dependencies: [],
+    devDependencies: [],
+  };
+
+  try {
+    const content = await deps.readFile(join(projectRoot, "Gemfile"));
+    if (content.includes("rails")) {
+      stack.framework = "Rails";
+    }
+  } catch {
+    // ignore
+  }
+
+  return stack;
+}
+
+async function detectPhp(
+  projectRoot: string,
+  deps: FsDeps,
+): Promise<DetectedStack | null> {
+  if (!(await deps.fileExists(join(projectRoot, "composer.json")))) return null;
+
+  const stack: DetectedStack = {
+    language: "php",
+    packageManager: "composer",
+    dependencies: [],
+    devDependencies: [],
+  };
+
+  try {
+    const content = JSON.parse(
+      await deps.readFile(join(projectRoot, "composer.json")),
+    );
+    const reqDeps = content.require ?? {};
+    stack.dependencies = Object.keys(reqDeps);
+    if ("laravel/framework" in reqDeps) {
+      stack.framework = "Laravel";
+    }
   } catch {
     // ignore
   }
