@@ -1,4 +1,4 @@
-import { join, dirname } from "node:path";
+import { join, dirname, relative } from "node:path";
 import { mkdirSync } from "node:fs";
 import { select, input, confirm } from "@inquirer/prompts";
 import { renderTemplate } from "../core/template-engine.js";
@@ -129,7 +129,10 @@ export async function initCommand(
   mkdirSync(dirname(outputPath), { recursive: true });
   await deps.writeFile(outputPath, rendered);
 
-  logger.success(`Created ${outputPath}`);
+  const displayPath = options.global
+    ? outputPath
+    : `./${relative(process.cwd(), outputPath)}`;
+  logger.success(`Created ${displayPath}`);
   logger.info("Next steps:");
   logger.dim("  1. Review and customize your CLAUDE.md");
   logger.dim("  2. Run `dotclaudemd lint` to check for issues");
