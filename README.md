@@ -104,37 +104,34 @@ There is no standard starting point for writing CLAUDE.md files. Developers writ
 
 ## Quick Start
 
-No installation needed — just run:
-
 ```bash
 npx dotclaudemd init
 ```
 
-This auto-detects your project stack and generates a CLAUDE.md from the best matching template.
+This auto-detects your project stack and generates a CLAUDE.md from the best matching template. Works for **any language** — Node.js, Python, Java, Go, Rust, Ruby, PHP, and more.
 
 ---
 
 ## Installation
 
-### Use without installing (recommended)
+> **Requires Node.js >= 20** — but your **project** can be any language. dotclaudemd is a scaffolding tool that runs once to generate a file; it doesn't become a project dependency.
+
+### For Node.js / JavaScript / TypeScript projects
+
+You already have Node — just run directly:
 
 ```bash
-npx dotclaudemd <command>
-```
+# No install needed
+npx dotclaudemd init
 
-### Install globally
-
-```bash
+# Or install globally
 npm install -g dotclaudemd
-```
 
-### Install as a dev dependency
-
-```bash
+# Or as a dev dependency (for CI lint/doctor checks)
 npm install -D dotclaudemd
 ```
 
-Then add to your `package.json` scripts:
+If installed as a dev dependency, add to your `package.json` scripts:
 
 ```json
 {
@@ -145,7 +142,59 @@ Then add to your `package.json` scripts:
 }
 ```
 
-> **Requires Node.js >= 20**
+### For Python, Go, Rust, Java, Ruby, PHP, and other projects
+
+Node.js is only needed to run the CLI — it's not a project dependency. Think of it like using `npx` to run Prettier on a Python repo, or using `pip` to install `pre-commit` in a Java project. Many developer tools are language-agnostic.
+
+**Option 1: Use npx (if Node.js is already installed)**
+
+Most developers already have Node.js on their machine. Check with `node -v`.
+
+```bash
+# One-time scaffold — no install needed
+npx dotclaudemd init
+
+# Periodic health checks
+npx dotclaudemd lint
+npx dotclaudemd doctor
+```
+
+**Option 2: Install Node.js just for this**
+
+If you don't have Node.js, install it temporarily:
+
+```bash
+# macOS (Homebrew)
+brew install node
+
+# Ubuntu/Debian
+sudo apt install nodejs npm
+
+# Fedora
+sudo dnf install nodejs npm
+
+# Or use a version manager (nvm, fnm, volta)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+nvm install 20
+
+# Then run
+npx dotclaudemd init
+```
+
+**Option 3: Install globally (recommended for non-Node projects)**
+
+Install once, use everywhere — no `npx` prefix needed:
+
+```bash
+npm install -g dotclaudemd
+
+# Now use directly in any project
+cd ~/my-python-project && dotclaudemd init
+cd ~/my-go-project && dotclaudemd init
+cd ~/my-rust-project && dotclaudemd init
+```
+
+> **Note:** dotclaudemd does not add any files to your project besides `CLAUDE.md`. It reads your project's manifest files (`pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml`, `Gemfile`, `composer.json`) but never modifies them.
 
 ---
 
@@ -451,9 +500,41 @@ npx dotclaudemd init --stack typescript-monorepo
 
 The template covers workspace commands, package boundaries, and shared config conventions.
 
-### 10. Multi-language project
+### 10. Non-JavaScript projects (Python, Go, Rust, Java, Ruby, PHP)
 
-Your project root has both `package.json` and `pom.xml`? The detector picks the primary stack (Node.js in this case). You can override:
+dotclaudemd works for any language. It reads your project's manifest files — not just `package.json`:
+
+```bash
+# Python project with pyproject.toml
+cd my-fastapi-app && npx dotclaudemd init
+# → detects FastAPI, suggests fastapi-sqlalchemy template
+
+# Java project with pom.xml
+cd my-spring-app && npx dotclaudemd init
+# → detects Spring Boot, suggests springboot template
+
+# Go project with go.mod
+cd my-go-api && npx dotclaudemd init
+# → detects Go + router, suggests go-api template
+
+# Ruby project with Gemfile
+cd my-rails-app && npx dotclaudemd init
+# → detects Rails, suggests rails template
+
+# Rust project with Cargo.toml
+cd my-rust-project && npx dotclaudemd init
+# → detects Rust, suggests cargo-workspace template
+
+# PHP project with composer.json
+cd my-laravel-app && npx dotclaudemd init
+# → detects Laravel, suggests laravel template
+```
+
+The CLI only needs Node.js to run — it doesn't add any Node files to your project. The only output is a `CLAUDE.md` file.
+
+### 11. Multi-language project
+
+Your project root has both `package.json` and `pom.xml`? The detector picks the primary stack. You can always override:
 
 ```bash
 npx dotclaudemd init --stack springboot
