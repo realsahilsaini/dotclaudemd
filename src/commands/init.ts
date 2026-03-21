@@ -7,7 +7,7 @@ import {
   suggestTemplates,
 } from "../core/template-registry.js";
 import { detectStack } from "../core/project-detector.js";
-import type { Template, FsDeps } from "../types.js";
+import type { Template, DetectedStack, FsDeps } from "../types.js";
 import { defaultFsDeps } from "../utils/fs.js";
 import { findProjectRoot, findClaudeMd } from "../utils/paths.js";
 import * as logger from "../utils/logger.js";
@@ -23,7 +23,7 @@ export interface InitOptions {
 export async function initCommand(
   options: InitOptions = {},
   deps: FsDeps = defaultFsDeps,
-  promptFn?: typeof promptForVariables,
+  promptFn?: (template: Template, variables: Record<string, string>, detected?: DetectedStack | null, inferred?: Record<string, string>) => Promise<void>,
 ): Promise<void> {
   const projectRoot = options.global
     ? join(process.env.HOME ?? "~", ".claude")
@@ -105,16 +105,20 @@ export async function initCommand(
 
   logger.info(`Using template: ${template.frontmatter.displayName}`);
 
-  // Prompt for variables
+  // Infer variables from detected project state
+  const inferred = await inferVariables(template, detected, projectRoot, deps);
+
+  // Prompt for variables (skipping inferred ones)
   const variables: Record<string, string> = {};
   const doPrompt = promptFn ?? promptForVariables;
 
   if (template.frontmatter.variables.length > 0 && !options.noInteractive) {
-    await doPrompt(template, variables, detected);
+    await doPrompt(template, variables, detected, inferred);
   } else {
-    // Use defaults
+    // Use inferred values first, then defaults
     for (const v of template.frontmatter.variables) {
-      if (v.default) variables[v.name] = v.default;
+      if (inferred[v.name]) variables[v.name] = inferred[v.name];
+      else if (v.default) variables[v.name] = v.default;
     }
   }
 
@@ -144,12 +148,217 @@ async function selectTemplate(templates: Template[]): Promise<Template> {
   return templates.find((t) => t.frontmatter.name === answer)!;
 }
 
+/**
+ * Infer variable values from detected project state.
+ * Returns a map of variable name → inferred value.
+ * Only returns values that match one of the variable's options (if options exist).
+ */
+export async function inferVariables(
+  template: Template,
+  detected: DetectedStack | null,
+  projectRoot: string,
+  deps: FsDeps = defaultFsDeps,
+): Promise<Record<string, string>> {
+  const inferred: Record<string, string> = {};
+  if (!detected) return inferred;
+
+  const allDeps = [...detected.dependencies, ...detected.devDependencies];
+
+  for (const v of template.frontmatter.variables) {
+    let value: string | undefined;
+
+    switch (v.name) {
+      // --- Styling ---
+      case "styling":
+        if (allDeps.includes("tailwindcss")) value = "Tailwind CSS";
+        else if (allDeps.includes("styled-components")) value = "styled-components";
+        else if (allDeps.includes("unocss") || allDeps.includes("@unocss/preset-wind")) value = "UnoCSS";
+        break;
+
+      // --- Source directory ---
+      case "src_dir":
+        if (await deps.fileExists(join(projectRoot, "src"))) value = "src";
+        else value = "app";
+        break;
+
+      // --- State management ---
+      case "state_management":
+        if (allDeps.includes("zustand")) value = "Zustand";
+        else if (allDeps.includes("@reduxjs/toolkit")) value = "Redux Toolkit";
+        else if (allDeps.includes("jotai")) value = "Jotai";
+        else if (allDeps.includes("pinia")) value = "Pinia";
+        else if (allDeps.includes("react")) value = "React Context";
+        break;
+
+      // --- Database ---
+      case "db":
+      case "db_type":
+      case "db_provider":
+        if (allDeps.some((d) => ["pg", "psycopg2", "psycopg2-binary", "psycopg", "@prisma/client"].includes(d))) value = "PostgreSQL";
+        else if (allDeps.some((d) => ["mysql2", "mysqlclient", "pymysql"].includes(d))) value = "MySQL";
+        else if (allDeps.some((d) => ["better-sqlite3", "sqlite3"].includes(d))) value = "SQLite";
+        break;
+
+      // --- Auth ---
+      case "auth_method":
+        if (allDeps.includes("passport")) value = "Passport";
+        else if (allDeps.includes("jsonwebtoken") || allDeps.includes("jose")) value = "JWT";
+        break;
+
+      case "auth_provider":
+        if (allDeps.includes("next-auth")) value = "NextAuth.js";
+        else if (allDeps.includes("@clerk/nextjs")) value = "Clerk";
+        else if (allDeps.includes("@auth0/nextjs-auth0")) value = "Auth0";
+        break;
+
+      // --- Package manager ---
+      case "package_manager":
+        if (detected.packageManager) value = detected.packageManager;
+        break;
+
+      // --- Test framework ---
+      case "test_framework":
+        if (detected.testFramework) {
+          // Capitalize first letter to match option format
+          value = detected.testFramework.charAt(0).toUpperCase() + detected.testFramework.slice(1);
+        }
+        break;
+
+      // --- CLI framework ---
+      case "cli_framework":
+        if (allDeps.includes("commander")) value = "Commander";
+        else if (allDeps.includes("yargs")) value = "yargs";
+        else if (allDeps.includes("clipanion")) value = "Clipanion";
+        break;
+
+      // --- Build tool (Java) ---
+      case "build_tool":
+        if (detected.packageManager === "maven") value = "Maven";
+        else if (detected.packageManager === "gradle") value = "Gradle";
+        break;
+
+      // --- Monorepo tool ---
+      case "monorepo_tool":
+        if (detected.framework === "Turborepo") value = "Turborepo";
+        else if (detected.framework === "Nx") value = "Nx";
+        break;
+
+      // --- Go router ---
+      case "router":
+        if (detected.framework === "Chi") value = "Chi";
+        else if (detected.framework === "Gin") value = "Gin";
+        else if (detected.framework === "Echo") value = "Echo";
+        break;
+
+      // --- SvelteKit adapter ---
+      case "adapter":
+        if (allDeps.includes("@sveltejs/adapter-node")) value = "node";
+        else if (allDeps.includes("@sveltejs/adapter-static")) value = "static";
+        else if (allDeps.includes("@sveltejs/adapter-vercel")) value = "vercel";
+        else value = "auto";
+        break;
+
+      // --- Astro UI framework ---
+      case "ui_framework":
+        if (allDeps.includes("@astrojs/react")) value = "React";
+        else if (allDeps.includes("@astrojs/vue")) value = "Vue";
+        else if (allDeps.includes("@astrojs/svelte")) value = "Svelte";
+        else value = "None";
+        break;
+
+      // --- Vue/Nuxt variant ---
+      case "variant":
+        if (allDeps.includes("nuxt")) value = "Nuxt 3";
+        else value = "Vue 3 SPA";
+        break;
+
+      // --- Validation library ---
+      case "validation":
+        if (allDeps.includes("zod")) value = "Zod";
+        else if (allDeps.includes("joi")) value = "Joi";
+        else if (allDeps.includes("express-validator")) value = "express-validator";
+        break;
+
+      // --- Flask template engine ---
+      case "template_engine":
+        if (allDeps.includes("flask")) value = "Jinja2";
+        break;
+
+      // --- Rails API-only ---
+      case "api_only": {
+        try {
+          const gemfile = await deps.readFile(join(projectRoot, "Gemfile"));
+          if (gemfile.includes("api_only") || !gemfile.includes("sprockets")) value = "Yes";
+          else value = "No";
+        } catch {
+          // ignore
+        }
+        break;
+      }
+
+      // --- Rust project type ---
+      case "project_type": {
+        try {
+          const cargo = await deps.readFile(join(projectRoot, "Cargo.toml"));
+          const hasLib = cargo.includes("[lib]");
+          const hasBin = cargo.includes("[[bin]]") || cargo.includes("[package]");
+          if (hasLib && hasBin) value = "Both";
+          else if (hasLib) value = "Library";
+          else value = "Binary";
+        } catch {
+          // ignore
+        }
+        break;
+      }
+
+      // --- Java version ---
+      case "java_version": {
+        try {
+          if (await deps.fileExists(join(projectRoot, "pom.xml"))) {
+            const pom = await deps.readFile(join(projectRoot, "pom.xml"));
+            const match = pom.match(/<java\.version>(\d+)<\/java\.version>/);
+            if (match) value = match[1];
+          } else {
+            const gradleFile = (await deps.fileExists(join(projectRoot, "build.gradle.kts")))
+              ? "build.gradle.kts"
+              : "build.gradle";
+            const gradle = await deps.readFile(join(projectRoot, gradleFile));
+            const match = gradle.match(/(?:sourceCompatibility|jvmTarget)\s*=\s*['"]?(\d+)/);
+            if (match) value = match[1];
+          }
+        } catch {
+          // ignore
+        }
+        break;
+      }
+    }
+
+    // Only accept inferred value if it matches one of the variable's options
+    if (value && v.options && v.options.length > 0) {
+      const matched = v.options.find((o) => o.toLowerCase() === value!.toLowerCase());
+      if (matched) inferred[v.name] = matched;
+    } else if (value && !v.options) {
+      inferred[v.name] = value;
+    }
+  }
+
+  return inferred;
+}
+
 async function promptForVariables(
   template: Template,
   variables: Record<string, string>,
-  detected?: { packageManager?: string; testFramework?: string } | null,
+  detected?: DetectedStack | null,
+  inferred?: Record<string, string>,
 ): Promise<void> {
   for (const v of template.frontmatter.variables) {
+    // If we have an inferred value, use it and skip the prompt
+    if (inferred && inferred[v.name]) {
+      variables[v.name] = inferred[v.name];
+      logger.dim(`  ${v.name}: ${inferred[v.name]} (auto-detected)`);
+      continue;
+    }
+
     const defaultValue =
       v.default ??
       (v.name === "package_manager" && detected?.packageManager
