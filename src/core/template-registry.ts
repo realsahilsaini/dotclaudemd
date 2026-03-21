@@ -115,12 +115,15 @@ export async function suggestTemplates(
         score += 1;
       }
 
-      // Framework match
-      if (
-        stack.framework &&
-        template.frontmatter.tags.includes(stack.framework.toLowerCase())
-      ) {
-        score += 3;
+      // Framework match — normalize both sides (e.g. "Next.js" → "nextjs")
+      if (stack.framework) {
+        const normalizedFramework = stack.framework
+          .toLowerCase()
+          .replace(/[.\s]/g, "");
+        const matchesTag = template.frontmatter.tags.some(
+          (tag) => tag.toLowerCase().replace(/[.\s]/g, "") === normalizedFramework,
+        );
+        if (matchesTag) score += 3;
       }
 
       return { template, score };

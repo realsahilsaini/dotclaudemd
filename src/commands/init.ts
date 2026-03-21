@@ -85,8 +85,11 @@ export async function initCommand(
     template = match;
   } else if (detected) {
     const suggestions = await suggestTemplates(detected);
-    if (suggestions.length === 1 || options.noInteractive) {
-      template = suggestions[0] ?? allTemplates[0];
+    if (suggestions.length >= 1 && (suggestions.length === 1 || options.noInteractive)) {
+      template = suggestions[0];
+    } else if (suggestions.length > 1 && detected.framework) {
+      // Strong detection (language + framework) — auto-select top match
+      template = suggestions[0];
     } else if (suggestions.length > 1) {
       template = await selectTemplate(suggestions);
     } else {
